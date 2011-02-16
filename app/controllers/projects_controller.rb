@@ -2,6 +2,13 @@ class ProjectsController < ApplicationController
 
   before_filter :load_templates, :only => [:new, :create, :edit, :update]
   before_filter :ensure_admin, :only => [:new, :edit, :destroy, :create, :update]
+  skip_before_filter CASClient::Frameworks::Rails::Filter, :only => :api
+  skip_before_filter :login_required, :only => :api
+
+  def api
+    @deployments = Deployment.find(:all, :limit => 30, :order => 'created_at DESC', :include => { :stage => :project })
+    render :text => @deployments.to_xml(:except => :log, :include => { :stage => { :include => :project }})
+  end
 
   # GET /projects/dashboard
   def dashboard
@@ -9,10 +16,6 @@ class ProjectsController < ApplicationController
 
     respond_to do |format|
       format.html # dashboard.rhtml
-      format.xml {
-        @deployments = Deployment.find(:all, :limit => 30, :order => 'created_at DESC', :include => { :stage => :project })
-        render :text => @deployments.to_xml(:except => :log, :include => { :stage => { :include => :project }})
-      }
     end
   end
 
