@@ -1,17 +1,21 @@
 class ProjectsController < ApplicationController
-  
+
   before_filter :load_templates, :only => [:new, :create, :edit, :update]
   before_filter :ensure_admin, :only => [:new, :edit, :destroy, :create, :update]
-  
+
   # GET /projects/dashboard
   def dashboard
     @deployments = Deployment.find(:all, :limit => 3, :order => 'created_at DESC')
 
     respond_to do |format|
       format.html # dashboard.rhtml
+      format.xml {
+        @deployments = Deployment.find(:all, :limit => 30, :order => 'created_at DESC', :include => { :stage => :project })
+        render :text => @deployments.to_xml(:except => :log, :include => { :stage => { :include => :project }})
+      }
     end
   end
-  
+
   # GET /projects
   # GET /projects.xml
   def index
@@ -52,18 +56,18 @@ class ProjectsController < ApplicationController
   # POST /projects.xml
   def create
     @project = Project.new(params[:project])
-    
+
     if load_clone_original
-      action_to_render = 'clone'  
+      action_to_render = 'clone'
     else
-      action_to_render = 'new'  
+      action_to_render = 'new'
     end
-      
+
     respond_to do |format|
       if @project.save
-        
+
         @project.clone(@original) if load_clone_original
-        
+
         flash[:notice] = 'Project was successfully created.'
         format.html { redirect_to project_url(@project) }
         format.xml  { head :created, :location => project_url(@project) }
@@ -103,18 +107,18 @@ class ProjectsController < ApplicationController
       format.xml  { head :ok }
     end
   end
-  
+
   protected
   def load_templates
     @templates = ProjectConfiguration.templates.sort.collect do |k,v|
       [k.to_s.titleize, k.to_s]
-    end  
-    
+    end
+
     @template_infos = ProjectConfiguration.templates.collect do |k,v|
       [k.to_s, v::DESC]
     end
   end
-  
+
   def load_clone_original
     if params[:clone]
       @original = Project.find(params[:clone])
